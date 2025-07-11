@@ -269,7 +269,6 @@ namespace TollRoads
 
         protected override void OnUpdate()
         {
-            // add PathfindUpdated flag to all TollLanes on first frame to run it through our custom job
             if (skipFirstFrame)
             {
                 skipFirstFrame = false;
