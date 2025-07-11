@@ -212,7 +212,8 @@ namespace TollRoads
         private PathfindQueueSystem pathfindQueueSystem;
         private EntityQuery updatedTollLanesQuery;
         private EntityQuery initialTollLanesQuery;
-        private bool m_Loaded;
+        private bool skipFirstFrame;
+        private bool init;
 
         protected override void OnCreate()
         {
@@ -221,32 +222,16 @@ namespace TollRoads
             pathfindQueueSystem = base.World.GetOrCreateSystemManaged<PathfindQueueSystem>();
             initialTollLanesQuery = GetEntityQuery(new EntityQueryDesc
             {
-                All = new ComponentType[2]
-                {
-                    ComponentType.ReadOnly<Game.Net.CarLane>(),
-                    ComponentType.ReadOnly<TollLane>()
-                },
-                None = new ComponentType[4]
-                {
-                    ComponentType.ReadOnly<Created>(),
-                    ComponentType.ReadOnly<Deleted>(),
-                    ComponentType.ReadOnly<Temp>(),
-                    ComponentType.ReadOnly<SlaveLane>()
-                }
-            }, new EntityQueryDesc
+                All = new ComponentType[2] {
+                ComponentType.ReadOnly<Game.Net.CarLane>(),
+                ComponentType.ReadOnly<TollLane>()
+            },
+                None = new ComponentType[3]
             {
-                All = new ComponentType[2]
-                {
-                    ComponentType.ReadOnly<Game.Net.CarLane>(),
-                    ComponentType.ReadOnly<TollLane>()
-                },
-                None = new ComponentType[4]
-                {
-                    ComponentType.ReadOnly<Updated>(),
-                    ComponentType.ReadOnly<Deleted>(),
-                    ComponentType.ReadOnly<Temp>(),
-                    ComponentType.ReadOnly<SlaveLane>()
-                }
+                ComponentType.ReadOnly<Temp>(),
+                ComponentType.ReadOnly<SlaveLane>(),
+                ComponentType.ReadOnly<Deleted>()
+            }
             });
 
             updatedTollLanesQuery = GetEntityQuery(new EntityQueryDesc
@@ -280,34 +265,34 @@ namespace TollRoads
                     ComponentType.ReadOnly<SlaveLane>()
                 }
             });
-            RequireForUpdate(updatedTollLanesQuery);
-
-            Mod.log.Debug("create");
         }
 
         protected override void OnUpdate()
         {
-            // add PathfindUpdated flag to all TollLanes to apply toll costs through custom update job
-            if (GetLoaded())
+            // add PathfindUpdated flag to all TollLanes on first frame to run it through our custom job
+            if (skipFirstFrame)
             {
-                var entities = initialTollLanesQuery.ToEntityArray(Allocator.Temp);
-                for (var i = 0; i < entities.Length; i++)
-                {
-                    EntityManager.AddComponent<PathfindUpdated>(entities[i]);
-                }
+                skipFirstFrame = false;
+                return;
             }
 
-            int queryCount = updatedTollLanesQuery.CalculateEntityCount();
+            EntityQuery entityQuery;
+            if (init)
+                entityQuery = initialTollLanesQuery;
+            else
+                 entityQuery = updatedTollLanesQuery;
+            int queryCount = entityQuery.CalculateEntityCount();
             if (queryCount == 0)
                 return;
+            init = false;
 
             JobHandle jobHandle = base.Dependency;
-            UpdateAction action2 = new UpdateAction(queryCount, Allocator.Persistent);
-            JobHandle outJobHandle2;
-            NativeList<ArchetypeChunk> chunks2 = updatedTollLanesQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out outJobHandle2);
-            JobHandle jobHandle3 = IJobExtensions.Schedule(new UpdateTollEdgeJob
+            UpdateAction action = new UpdateAction(queryCount, Allocator.Persistent);
+            JobHandle outJobHandle;
+            NativeList<ArchetypeChunk> chunks = entityQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out outJobHandle);
+            JobHandle jobHandle2 = IJobExtensions.Schedule(new UpdateTollEdgeJob
             {
-                m_Chunks = chunks2,
+                m_Chunks = chunks,
                 m_LaneData = SystemAPI.GetComponentLookup<Lane>(isReadOnly: true),
                 m_DensityData = SystemAPI.GetComponentLookup<Density>(isReadOnly: true),
                 m_NetLaneData = SystemAPI.GetComponentLookup<NetLaneData>(isReadOnly: true),
@@ -324,28 +309,19 @@ namespace TollRoads
                 m_TrackLaneType = SystemAPI.GetComponentTypeHandle<Game.Net.TrackLane>(isReadOnly: true),
                 m_LaneConnectionType = SystemAPI.GetComponentTypeHandle<LaneConnection>(isReadOnly: true),
                 m_PrefabRefType = SystemAPI.GetComponentTypeHandle<PrefabRef>(isReadOnly: true),
-                m_Actions = action2.m_UpdateData,
+                m_Actions = action.m_UpdateData,
                 tollLaneType = SystemAPI.GetComponentTypeHandle<TollLane>(isReadOnly: true),
-            }, JobHandle.CombineDependencies(base.Dependency, outJobHandle2));
-            jobHandle = JobHandle.CombineDependencies(jobHandle, jobHandle3);
-            chunks2.Dispose(jobHandle3);
-            pathfindQueueSystem.Enqueue(action2, jobHandle3);
+            }, JobHandle.CombineDependencies(base.Dependency, outJobHandle));
+            jobHandle = JobHandle.CombineDependencies(jobHandle, jobHandle2);
+            chunks.Dispose(jobHandle2);
+            pathfindQueueSystem.Enqueue(action, jobHandle2);
             base.Dependency = jobHandle;
         }
 
         protected override void OnGameLoaded(Context serializationContext)
         {
-            m_Loaded = true;
-        }
-
-        private bool GetLoaded()
-        {
-            if (m_Loaded)
-            {
-                m_Loaded = false;
-                return true;
-            }
-            return false;
+            skipFirstFrame = true;
+            init = true;
         }
     }
 }
