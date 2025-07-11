@@ -54,6 +54,9 @@ namespace TollRoads
             [ReadOnly]
             public bool isNight;
 
+            [ReadOnly]
+            public bool resetRevenue;
+
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 NativeArray<Owner> owners = chunk.GetNativeArray(ref ownerType);
@@ -96,6 +99,13 @@ namespace TollRoads
 
                     RegisterRevenue(revenue);
                     tollLane.nextRevenue += revenue;
+
+                    if (resetRevenue)
+                    {
+                        tollLane.revenue = tollLane.nextRevenue;
+                        tollLane.nextRevenue = 0;
+                    }
+
                     tollLanes[i] = tollLane;
                 }
             }
@@ -136,6 +146,8 @@ namespace TollRoads
         private ServiceFeeSystem serviceFeeSystem;
         private TimeSystem timeSystem;
         private CitySystem citySystem;
+        private SimulationSystem simulationSystem;
+        private const int REVENUE_RESET_INDEX = 1024;
 
         protected override void OnCreate()
         {
@@ -144,6 +156,7 @@ namespace TollRoads
             serviceFeeSystem = World.GetOrCreateSystemManaged<ServiceFeeSystem>();
             citySystem = World.GetOrCreateSystemManaged<CitySystem>();
             timeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            simulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
 
             tollLanesQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -170,6 +183,7 @@ namespace TollRoads
             JobHandle jobHandle = JobChunkExtensions.ScheduleParallel(new TollRevenueJob
             {
                 isNight = isNight,
+                resetRevenue = simulationSystem.frameIndex % REVENUE_RESET_INDEX == 0,
                 city = citySystem.City,
                 ownerType = SystemAPI.GetComponentTypeHandle<Owner>(isReadOnly: true),
                 tollLaneType = SystemAPI.GetComponentTypeHandle<TollLane>(),
