@@ -11,6 +11,7 @@ namespace TollRoads
 {
     public class Mod : IMod
     {
+        public static string Id = nameof(TollRoads);
         public static ILog log = LogManager.GetLogger($"{nameof(TollRoads)}.{nameof(Mod)}").SetShowsErrorsInUI(false);
         public static Setting? Settings { get; private set; }
 

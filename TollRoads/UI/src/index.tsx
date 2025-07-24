@@ -1,9 +1,11 @@
 import { ModRegistrar } from "cs2/modding";
-import ModIconButton from "./mods/ModIconButton";
+import TollRoadsButton from "./mods/TollRoadsButton";
+import TollRoadsMenu from "./mods/TollRoadsMenu/TollRoadsMenu";
 
 const register: ModRegistrar = (moduleRegistry) => {
 
-    moduleRegistry.append('GameTopLeft', ModIconButton);
+    moduleRegistry.append('GameTopLeft', TollRoadsButton);
+    moduleRegistry.append('Game', TollRoadsMenu);
 }
 
 export default register;
