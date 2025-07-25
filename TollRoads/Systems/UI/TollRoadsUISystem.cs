@@ -1,5 +1,6 @@
 ﻿using Colossal.UI.Binding;
 using Game.Rendering;
+using Game.Simulation;
 using Game.Tools;
 using Unity.Collections;
 using Unity.Entities;
@@ -12,6 +13,8 @@ namespace TollRoads
         private DefaultToolSystem defaultToolSystem;
         private TollRoadsToolSystem tollRoadsToolSystem;
         private CameraUpdateSystem cameraUpdateSystem;
+        private TimeSystem timeSystem;
+
         private EntityQuery tollLaneQuery;
         private ComponentLookup<TollLane> tollLaneLookup;
 
@@ -27,6 +30,7 @@ namespace TollRoads
             defaultToolSystem = World.GetOrCreateSystemManaged<DefaultToolSystem>();
             tollRoadsToolSystem = World.GetOrCreateSystemManaged<TollRoadsToolSystem>();
             cameraUpdateSystem = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
+            timeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
             tollLaneLookup = SystemAPI.GetComponentLookup<TollLane>();
             tollLaneQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -55,13 +59,21 @@ namespace TollRoads
                 binder[i] = new TollRoadUIBinder
                 {
                     Entity = tollLaneEntities[i],
-                    Toll = tollLane.toll,
+                    Toll = GetCurrentToll(tollLane),
                     Revenue = tollLane.revenue,
                     Volume = tollLane.volume,
                     Name = "test" + i,
                 };
             }
             tollRoadsUIBinder.Value = binder;
+        }
+
+        private int GetCurrentToll(TollLane tollLane)
+        {
+            float normalizedTime = timeSystem.normalizedTime;
+            bool isNight = normalizedTime < 0.25f || normalizedTime >= 11f / 12f;
+
+            return isNight ? tollLane.nightToll : tollLane.toll;
         }
 
         public void ToggleTool(bool? enable = null)
