@@ -1,6 +1,12 @@
 export interface TollRoadItem {
-    Name: string;
-    Entity: number;
+    Entity: Entity;
     Toll: number;
     Revenue: number;
+    Volume: number;
+    Name: string;
+}
+
+export interface Entity {
+    index: number;
+    version: number;
 }

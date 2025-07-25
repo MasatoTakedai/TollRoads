@@ -1,4 +1,5 @@
 ﻿using Colossal.UI.Binding;
+using Game.Rendering;
 using Game.Tools;
 using Unity.Collections;
 using Unity.Entities;
@@ -10,6 +11,7 @@ namespace TollRoads
         private ToolSystem toolSystem;
         private DefaultToolSystem defaultToolSystem;
         private TollRoadsToolSystem tollRoadsToolSystem;
+        private CameraUpdateSystem cameraUpdateSystem;
         private EntityQuery tollLaneQuery;
         private ComponentLookup<TollLane> tollLaneLookup;
 
@@ -24,6 +26,8 @@ namespace TollRoads
             toolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
             defaultToolSystem = World.GetOrCreateSystemManaged<DefaultToolSystem>();
             tollRoadsToolSystem = World.GetOrCreateSystemManaged<TollRoadsToolSystem>();
+            cameraUpdateSystem = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
+            tollLaneLookup = SystemAPI.GetComponentLookup<TollLane>();
             tollLaneQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
@@ -36,6 +40,7 @@ namespace TollRoads
             tollRoadsUIBinder = CreateBinding("GetTollRoads", new TollRoadUIBinder[0]);
 
             CreateTrigger("ToggleTool", () => ToggleTool());
+            CreateTrigger<Entity>("NavigateTo", e => NavigateTo(e));
         }
 
         protected override void OnUpdate()
@@ -46,12 +51,14 @@ namespace TollRoads
             var binder = new TollRoadUIBinder[tollLaneEntities.Length];
             for (int i = 0; i < tollLaneEntities.Length; i++)
             {
+                TollLane tollLane = tollLaneLookup[tollLaneEntities[i]];
                 binder[i] = new TollRoadUIBinder
                 {
-                    Entity = tollLaneEntities[i].Index,
-                    Toll = tollLaneLookup[tollLaneEntities[i]].toll,
-                    Revenue = tollLaneLookup[tollLaneEntities[i]].revenue,
-                    Name = "test",
+                    Entity = tollLaneEntities[i],
+                    Toll = tollLane.toll,
+                    Revenue = tollLane.revenue,
+                    Volume = tollLane.volume,
+                    Name = "test" + i,
                 };
             }
             tollRoadsUIBinder.Value = binder;
@@ -66,6 +73,16 @@ namespace TollRoads
             else
             {
                 ClearTool();
+            }
+        }
+
+        private void NavigateTo(Entity entity)
+        {
+            if (cameraUpdateSystem.orbitCameraController != null && entity != Entity.Null)
+            {
+                cameraUpdateSystem.orbitCameraController.followedEntity = entity;
+                cameraUpdateSystem.orbitCameraController.TryMatchPosition(cameraUpdateSystem.activeCameraController);
+                cameraUpdateSystem.activeCameraController = cameraUpdateSystem.orbitCameraController;
             }
         }
 

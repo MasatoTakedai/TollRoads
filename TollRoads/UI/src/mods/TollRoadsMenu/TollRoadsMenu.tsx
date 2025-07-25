@@ -88,6 +88,8 @@ const TollRoadMenu: FC<TollRoadMenuProps> = ({ onClose, initialPosition, ...prop
     const tollRoads = useValue(tollRoads$)
 
     if (!tollRoadsToolEnabled) return null;
+
+    console.log(tollRoads)
     return (
         <Panel
 
@@ -138,7 +140,7 @@ const TollRoadMenu: FC<TollRoadMenuProps> = ({ onClose, initialPosition, ...prop
                         <Scrollable smooth={true} vertical={true} trackVisibility="scrollable">
                             {tollRoads.map((road) => (
                                 <TollRoadRow
-                                    key={road.Entity}
+                                    key={road.Entity.version}
                                     tollRoad={road}
                                 />
                             ))}

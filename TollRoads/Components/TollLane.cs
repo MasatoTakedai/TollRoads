@@ -11,6 +11,8 @@ namespace TollRoads
         public float truckMultiplier;
         public int revenue; // only to be used for UI
         public int nextRevenue; // only to be used for UI
+        public int volume; // only to be used for UI
+        public int nextVolume; // only to be used for UI
         public NativeHashSet<Entity> vehicles;
 
         public TollLane(int toll)
@@ -20,6 +22,8 @@ namespace TollRoads
             truckMultiplier = 1.5f;
             revenue = 0;
             nextRevenue = 0;
+            volume = 0;
+            nextVolume = 0;
             vehicles = new NativeHashSet<Entity>(0, Allocator.Persistent);
         }
 
@@ -30,6 +34,8 @@ namespace TollRoads
             writer.Write(truckMultiplier);
             writer.Write(revenue);
             writer.Write(nextRevenue);
+            writer.Write(volume);
+            writer.Write(nextVolume);
             writer.Write(vehicles.Count);
             writer.Write(vehicles.ToNativeArray(Allocator.Persistent));
         }
@@ -41,8 +47,10 @@ namespace TollRoads
             reader.Read(out truckMultiplier);
             reader.Read(out revenue);
             reader.Read(out nextRevenue);
-            reader.Read(out int count);
+            reader.Read(out volume);
+            reader.Read(out nextVolume); 
 
+            reader.Read(out int count);
             NativeArray<Entity> array = new NativeArray<Entity>(count, Allocator.Temp);
             reader.Read(array);
             vehicles = new NativeHashSet<Entity>(count, Allocator.Persistent);

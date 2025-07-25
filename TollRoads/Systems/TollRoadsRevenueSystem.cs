@@ -64,6 +64,7 @@ namespace TollRoads
                 for (int i = 0; i < tollLanes.Length; i++)
                 {
                     int revenue = 0;
+                    int volume = 0;
                     TollLane tollLane = tollLanes[i];
                     if (subLanesLookup.TryGetBuffer(owners[i].m_Owner, out var sublanes))
                     {
@@ -81,6 +82,7 @@ namespace TollRoads
                                             toll = (int)(toll * tollLane.truckMultiplier);
 
                                         revenue += toll;
+                                        volume++;
                                         TollDriver(obj.m_LaneObject, tollLane.toll);
                                         tollLane.vehicles.Add(obj.m_LaneObject);
                                     }
@@ -99,11 +101,16 @@ namespace TollRoads
 
                     RegisterRevenue(revenue);
                     tollLane.nextRevenue += revenue;
+                    tollLane.nextVolume += volume;
 
+                    // set revenue and volume vars for UI
                     if (resetRevenue)
                     {
                         tollLane.revenue = tollLane.nextRevenue;
                         tollLane.nextRevenue = 0;
+
+                        tollLane.volume = tollLane.nextVolume;
+                        tollLane.nextVolume = 0;
                     }
 
                     tollLanes[i] = tollLane;
