@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using Game.Pathfind;
 using Game.Tools;
 using Colossal.Serialization.Entities;
+using Game.Simulation;
 
 namespace TollRoads
 {
@@ -24,10 +25,13 @@ namespace TollRoads
             [ReadOnly]
             public ComponentTypeHandle<TollLane> tollLaneType;
 
+            [ReadOnly]
+            public bool isNight;
+
             public PathSpecification AddTollCosts(PathSpecification pathSpec, TollLane tollLane)
             {
                 PathSpecification newPathSpec = pathSpec;
-                newPathSpec.m_Costs.m_Value += new float4(0, 0, tollLane.toll, 0);
+                newPathSpec.m_Costs.m_Value += new float4(0, 0, isNight ? tollLane.nightToll : tollLane.toll, 0);
                 return newPathSpec;
             }
 
@@ -210,17 +214,20 @@ namespace TollRoads
         }
 
         private PathfindQueueSystem pathfindQueueSystem;
+        private TimeSystem timeSystem;
         private EntityQuery updatedTollLanesQuery;
-        private EntityQuery initialTollLanesQuery;
+        private EntityQuery allTollLanesQuery;
         private bool skipFirstFrame;
         private bool init;
+        private bool isSetNight;
 
         protected override void OnCreate()
         {
             base.OnCreate();
             Mod.log.Info("OnCreate " + nameof(TollLanesModifiedSystem));
             pathfindQueueSystem = base.World.GetOrCreateSystemManaged<PathfindQueueSystem>();
-            initialTollLanesQuery = GetEntityQuery(new EntityQueryDesc
+            timeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            allTollLanesQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[2] {
                 ComponentType.ReadOnly<Game.Net.CarLane>(),
@@ -269,21 +276,32 @@ namespace TollRoads
 
         protected override void OnUpdate()
         {
+            // skip first frame to avoid conflicts with LanesModifiedSystem
             if (skipFirstFrame)
             {
                 skipFirstFrame = false;
                 return;
             }
 
+            // set entityQuery to all lanes if initial frame
             EntityQuery entityQuery;
             if (init)
-                entityQuery = initialTollLanesQuery;
+                entityQuery = allTollLanesQuery;
             else
                  entityQuery = updatedTollLanesQuery;
             int queryCount = entityQuery.CalculateEntityCount();
             if (queryCount == 0)
                 return;
             init = false;
+
+            // set day/night tolls when it switches
+            float normalizedTime = timeSystem.normalizedTime;
+            bool isNight = normalizedTime < 0.25f || normalizedTime >= 11f / 12f;
+            if (isNight && !isSetNight || !isNight && isSetNight)
+            {
+                entityQuery = allTollLanesQuery;
+                isSetNight = isNight;
+            }
 
             JobHandle jobHandle = base.Dependency;
             UpdateAction action = new UpdateAction(queryCount, Allocator.Persistent);
@@ -310,6 +328,7 @@ namespace TollRoads
                 m_PrefabRefType = SystemAPI.GetComponentTypeHandle<PrefabRef>(isReadOnly: true),
                 m_Actions = action.m_UpdateData,
                 tollLaneType = SystemAPI.GetComponentTypeHandle<TollLane>(isReadOnly: true),
+                isNight = isNight,
             }, JobHandle.CombineDependencies(base.Dependency, outJobHandle));
             jobHandle = JobHandle.CombineDependencies(jobHandle, jobHandle2);
             chunks.Dispose(jobHandle2);
