@@ -1,7 +1,10 @@
 ﻿using Colossal.UI.Binding;
+using Game.Net;
 using Game.Rendering;
 using Game.Simulation;
 using Game.Tools;
+using Game.UI;
+using Game.Common;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -14,9 +17,12 @@ namespace TollRoads
         private TollRoadsToolSystem tollRoadsToolSystem;
         private CameraUpdateSystem cameraUpdateSystem;
         private TimeSystem timeSystem;
+        private NameSystem nameSystem;
 
         private EntityQuery tollLaneQuery;
         private ComponentLookup<TollLane> tollLaneLookup;
+        private ComponentLookup<Aggregated> aggregatedLookup;
+        private ComponentLookup<Owner> ownerLookup;
 
         private ValueBindingHelper<bool> tollRoadsToolEnabled;
         private ValueBindingHelper<TollRoadUIBinder[]> tollRoadsUIBinder;
@@ -31,7 +37,10 @@ namespace TollRoads
             tollRoadsToolSystem = World.GetOrCreateSystemManaged<TollRoadsToolSystem>();
             cameraUpdateSystem = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
             timeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            nameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             tollLaneLookup = SystemAPI.GetComponentLookup<TollLane>();
+            aggregatedLookup = SystemAPI.GetComponentLookup<Aggregated>();
+            ownerLookup = SystemAPI.GetComponentLookup<Owner>();
             tollLaneQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
@@ -62,7 +71,7 @@ namespace TollRoads
                     Toll = GetCurrentToll(tollLane),
                     Revenue = tollLane.revenue,
                     Volume = tollLane.volume,
-                    Name = "test" + i,
+                    Name = nameSystem.GetRenderedLabelName(aggregatedLookup[ownerLookup[tollLaneEntities[i]].m_Owner].m_Aggregate),
                 };
             }
             tollRoadsUIBinder.Value = binder;
